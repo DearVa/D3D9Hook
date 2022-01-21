@@ -3,36 +3,35 @@
 
 void DbgPrintf(const char *format, ...);
 
-const BYTE OLD_CODE[] = { 0x48, 0x83, 0xC1, 0xC8, 0xE9 };
+// const BYTE OLD_CODE[] = { 0x48, 0x83, 0xC1, 0xC8, 0xE9 };  // SwapChain.Present
+// const BYTE OLD_CODE[] = { 0x48, 0x89, 0x5C, 0x24, 0x8 };  // CreateDeviceEx
 
 /* CHookJump modified from taksi project: BSD license */
 struct CHookJump {
 	CHookJump() : DwOldProtection(0) {
-		Jump[0] = 0;
+		OldCode[0] = 0;
 	}
 
 	bool IsHookInstalled() const {
-		return Jump[0] != 0;
+		return OldCode[0] != 0;
 	}
 
 	bool InstallHook(LPVOID pFunc, LPVOID pFuncNew);
-	bool UninstallHook(LPVOID pFunc);
+	bool UninstallHook();
 
 	//Copy back saved code fragment
-	void SwapOld(const LPVOID pFunc) const {
-		memcpy(pFunc, OLD_CODE, sizeof(OLD_CODE));
-	}
+	void SwapOld();
 
 	//Copy back JMP instruction again
-	void SwapReset(const LPVOID pFunc) const {
-		/* hook has since been destroyed! */
-		if (!IsHookInstalled())
-			return;
-
-		memcpy(pFunc, Jump, sizeof(Jump));
-	}
+	void SwapReset();
 
 private:
+	LPVOID POldFunc;
 	DWORD DwOldProtection;	   // used by VirtualProtect()
+	DWORD DwProtectionTemp;	   // used by VirtualProtect()
+	BYTE OldCode[5];
 	BYTE Jump[5];    // what do i want to replace it with.
+
+	bool SetVirtualProtect();
+	bool RestoreVirtualProtect();
 };

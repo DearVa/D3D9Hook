@@ -2,6 +2,22 @@
 
 #include <cstdio>
 
+bool CHookJump::SetVirtualProtect() {
+	if (!VirtualProtect(POldFunc, sizeof(POldFunc), PAGE_READWRITE, &DwOldProtection)) {
+		DbgPrintf("[D3D9Hook] VirtualProtect fault");
+		return false;
+	}
+	return true;
+}
+
+bool CHookJump::RestoreVirtualProtect() {
+	if (!VirtualProtect(POldFunc, sizeof(POldFunc), DwOldProtection, &DwProtectionTemp)) {
+		DbgPrintf("[D3D9Hook] VirtualProtect restore fault, DwOldProtection: %d", DwOldProtection);
+		return false;
+	}
+	return true;
+}
+
 /* CHookJump modified from taksi project: BSD license */
 bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
 	if (pFunc == nullptr) {
@@ -11,31 +27,32 @@ bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
 	if (IsHookInstalled() && !memcmp(pFunc, Jump, sizeof(Jump))) {
 		return true;
 	}
-
-	Jump[0] = 0;
 	
-	if (!VirtualProtect(pFunc, sizeof(pFunc), PAGE_EXECUTE_READWRITE, &DwOldProtection)) {
-		DbgPrintf("[D3D9Hook] VirtualProtect fault");
-		return false;
-	}
-
-	if (memcmp(pFunc, OLD_CODE, sizeof(OLD_CODE)) != 0) {
+	/*if (memcmp(pFunc, OLD_CODE, sizeof(OLD_CODE)) != 0) {
 		const auto func = static_cast<BYTE*>(pFunc);
-		DbgPrintf("[D3D9Hook] Old Code not match, expected: 48 83 C1 C8 E9, but got: %X %X %X %X %X", func[0], func[1], func[2], func[3], func[4]);
+		DbgPrintf("[D3D9Hook] Old Code not match, expected: 48 89 57 24 8, but got: %X %X %X %X %X", func[0], func[1], func[2], func[3], func[4]);
 		return false;
-	}
+	}*/
 
-	/* unconditional JMP to relative address is 5 bytes */
+	// unconditional JMP to relative address is 5 bytes
 	Jump[0] = 0xE9;
 	const DWORD dwAddr = static_cast<DWORD>(reinterpret_cast<UINT_PTR>(pFuncNew) - reinterpret_cast<UINT_PTR>(pFunc)) - sizeof(Jump);
 	memcpy(Jump + 1, &dwAddr, sizeof(dwAddr));
+
+	POldFunc = pFunc;
+	if (!SetVirtualProtect()) {
+		return false;
+	}
+	memcpy(OldCode, pFunc, sizeof(OldCode));
+	DbgPrintf("[D3D9Hook] OldCode: %X %X %X %X %X", OldCode[0], OldCode[1], OldCode[2], OldCode[3], OldCode[4]);
 	memcpy(pFunc, Jump, sizeof(Jump));
+	RestoreVirtualProtect();  // 不及时改回去有时会导致.NET报错
 
 	return true;
 }
 
-bool CHookJump::UninstallHook(const LPVOID pFunc) {
-	if (pFunc == nullptr) {
+bool CHookJump::UninstallHook() {
+	if (POldFunc == nullptr) {
 		return false;
 	}
 
@@ -44,12 +61,31 @@ bool CHookJump::UninstallHook(const LPVOID pFunc) {
 		return false;
 	}
 
-	memcpy(pFunc, OLD_CODE, sizeof(OLD_CODE));  // SwapOld(pFunc)
-	if (!VirtualProtect(pFunc, sizeof(pFunc), DwOldProtection, &DwOldProtection)) {  // restore protection.
+	if (!SetVirtualProtect()) {
 		return false;
 	}
-	Jump[0] = 0;
+	memcpy(POldFunc, OldCode, sizeof(OldCode));  // SwapOld(pFunc)
+	if (!RestoreVirtualProtect()) {
+		return false;
+	}
 	return true;
+}
+
+void CHookJump::SwapOld() {
+	if (SetVirtualProtect()) {
+		memcpy(POldFunc, OldCode, sizeof(OldCode));
+		RestoreVirtualProtect();
+	}
+}
+
+void CHookJump::SwapReset() {
+	if (!IsHookInstalled()) {
+		return;
+	}
+	if (SetVirtualProtect()) {
+		memcpy(POldFunc, Jump, sizeof(Jump));
+		RestoreVirtualProtect();
+	}
 }
 
 

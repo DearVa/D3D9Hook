@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Media3D;
 
 namespace WPFD3Dhack {
 	public partial class Window1 {
@@ -31,9 +26,7 @@ namespace WPFD3Dhack {
 		}
 
 		private void Window1_Loaded(object sender, RoutedEventArgs e) {
-			//Initialize();
-			// Trace.WriteLine(IsCaptureReady());
-			new Window2().ShowDialog();
+			
 		}
 
 		private bool rendered;
@@ -49,6 +42,12 @@ namespace WPFD3Dhack {
 
 		private void ButtonBase_OnClick(object sender, RoutedEventArgs e) {
 			InvalidateVisual();
+			new Window2().Show();
+		}
+
+		protected override void OnClosed(EventArgs e) {
+			base.OnClosed(e);
+			Application.Current.Shutdown();
 		}
 	}
 }
