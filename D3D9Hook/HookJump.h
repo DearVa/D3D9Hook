@@ -3,7 +3,7 @@
 
 void DbgPrintf(const char *format, ...);
 
-const BYTE OLD_CODE[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };  // CreateAdditionalSwapChain
+const BYTE OLD_CODE[] = { 0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x60, 0x48 };  // CreateAdditionalSwapChain
 
 /* CHookJump modified from taksi project: BSD license */
 struct CHookJump {
@@ -17,16 +17,16 @@ struct CHookJump {
 	bool UninstallHook();
 
 	//Copy back saved code fragment
-	void SwapOld();
+	void SwapOld() const;
 
 	//Copy back JMP instruction again
-	void SwapReset();
+	void SwapReset() const;
 
 private:
 	LPVOID POldFunc;
 	DWORD DwOldProtection;	   // used by VirtualProtect()
 	DWORD DwProtectionTemp;	   // used by VirtualProtect()
-	BYTE Jump[5];    // what do i want to replace it with.
+	BYTE Jump[14];    // what do i want to replace it with.
 
 	bool SetVirtualProtect();
 	bool RestoreVirtualProtect();

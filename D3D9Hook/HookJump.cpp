@@ -3,7 +3,7 @@
 #include <cstdio>
 
 bool CHookJump::SetVirtualProtect() {
-	if (!VirtualProtect(POldFunc, sizeof(POldFunc), PAGE_READWRITE, &DwOldProtection)) {
+	if (!VirtualProtect(POldFunc, 14, PAGE_EXECUTE_READWRITE, &DwOldProtection)) {
 		DbgPrintf("[D3D9Hook] VirtualProtect fault");
 		return false;
 	}
@@ -11,7 +11,7 @@ bool CHookJump::SetVirtualProtect() {
 }
 
 bool CHookJump::RestoreVirtualProtect() {
-	if (!VirtualProtect(POldFunc, sizeof(POldFunc), DwOldProtection, &DwProtectionTemp)) {
+	if (!VirtualProtect(POldFunc, 14, DwOldProtection, &DwProtectionTemp)) {
 		DbgPrintf("[D3D9Hook] VirtualProtect restore fault, DwOldProtection: %d", DwOldProtection);
 		return false;
 	}
@@ -27,10 +27,14 @@ bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
 		return true;
 	}
 
-	// unconditional JMP to relative address is 5 bytes
-	Jump[0] = 0xE9;
-	const DWORD dwAddr = static_cast<DWORD>(reinterpret_cast<UINT_PTR>(pFuncNew) - reinterpret_cast<UINT_PTR>(pFunc)) - sizeof(Jump);
-	memcpy(Jump + 1, &dwAddr, sizeof(dwAddr));
+	// unconditional JMP to far address is 14 bytes
+	auto dwTo = reinterpret_cast<DWORD_PTR>(pFuncNew);
+	Jump[0] = 0x68;
+	const auto dJump = reinterpret_cast<DWORD32*>(Jump + 1);
+	dJump[0] = dwTo & 0xffffffff;
+	dJump[1] = 0x042444c7;
+	dJump[2] = dwTo >> 32;
+	Jump[13] = 0xc3;
 
 	POldFunc = pFunc;
 	if (!SetVirtualProtect()) {
@@ -42,12 +46,13 @@ bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
 		RestoreVirtualProtect();
 		POldFunc = nullptr;
 		const auto func = static_cast<BYTE *>(pFunc);
-		DbgPrintf("[D3D9Hook] Old Code not match, expected: 48 89 5C 24 10, but got: %X %X %X %X %X", func[0], func[1], func[2], func[3], func[4]);
+		DbgPrintf("[D3D9Hook] Old Code not match, expected: 0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x60, 0x48,"
+			"but got: 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X", func[0], func[1], func[2], func[3], func[4], func[5], func[6], 
+			func[7], func[8], func[9], func[10], func[11], func[12], func[13]);
 		return false;
 	}
 
 	memcpy(pFunc, Jump, sizeof(Jump));
-	RestoreVirtualProtect();  // 不及时改回去有时会导致.NET报错
 	return true;
 }
 
@@ -57,37 +62,30 @@ bool CHookJump::UninstallHook() {
 		return false;
 	}
 
-	if (!SetVirtualProtect()) {
-		return false;
-	}
 	memcpy(POldFunc, OLD_CODE, sizeof(OLD_CODE));  // SwapOld(pFunc)
-	if (!RestoreVirtualProtect()) {
-		return false;
-	}
+	RestoreVirtualProtect();
 	return true;
 }
 
-void CHookJump::SwapOld() {
-	if (IsHookInstalled() && SetVirtualProtect()) {
+void CHookJump::SwapOld() const {
+	if (IsHookInstalled()) {
 		memcpy(POldFunc, OLD_CODE, sizeof(OLD_CODE));
-		RestoreVirtualProtect();
 	}
 }
 
-void CHookJump::SwapReset() {
-	if (IsHookInstalled() && SetVirtualProtect()) {
+void CHookJump::SwapReset() const {
+	if (IsHookInstalled()) {
 		memcpy(POldFunc, Jump, sizeof(Jump));
-		RestoreVirtualProtect();
 	}
 }
 
 
 void DbgPrintf(const char *format, ...) {
-	static char buf[1024];
+	/*static char buf[1024];
 	va_list args;
 	va_start(args, format);
 	_vsnprintf_s(buf, sizeof(buf), format, args);
 	va_end(args);
 	OutputDebugStringA(buf);
-	printf("%s\n\r", buf);
+	printf("%s\n\r", buf);*/
 }

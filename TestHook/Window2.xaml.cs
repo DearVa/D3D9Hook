@@ -12,7 +12,7 @@ using TestHook;
 namespace WPFD3Dhack {
 	public partial class Window2 {
 		public Window2() {
-			Window1.Hook(new WindowInteropHelper(this).EnsureHandle(), 1920, 1080);
+			Window1.Hook(new WindowInteropHelper(this).EnsureHandle(), 800, 600);
 			WindowStyle = WindowStyle.None;
 			Background = Brushes.Black;
 			Left = 0;
@@ -38,8 +38,8 @@ namespace WPFD3Dhack {
 			sw.Stop();
 			Trace.WriteLine($"[D3D9Hook] CaptureLock takes: {sw.ElapsedMilliseconds}ms");
 			if (result == 0) {
-				var size = (ulong)1920 * 1080 * 4;
-				var bitmap = new WriteableBitmap(1920, 1080, 96d, 96d, PixelFormats.Bgr32, null);
+				var size = (ulong)800 * 600 * 4;
+				var bitmap = new WriteableBitmap(800, 600, 96d, 96d, PixelFormats.Bgr32, null);
 				bitmap.Lock();
 				unsafe {
 					Buffer.MemoryCopy(buf.ToPointer(), bitmap.BackBuffer.ToPointer(), size, size);
