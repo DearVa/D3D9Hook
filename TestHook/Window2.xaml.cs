@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -10,26 +12,34 @@ using TestHook;
 namespace WPFD3Dhack {
 	public partial class Window2 {
 		public Window2() {
-			Window1.Hook(new WindowInteropHelper(this).EnsureHandle());
-			//WindowStyle = WindowStyle.None;
+			Window1.Hook(new WindowInteropHelper(this).EnsureHandle(), 1920, 1080);
+			WindowStyle = WindowStyle.None;
 			Background = Brushes.Black;
-			//AllowsTransparency = true;
-			//ShowInTaskbar = false;
-			//SizeToContent = SizeToContent.WidthAndHeight;
+			Left = 0;
+			Top = 0;
+			WindowStyle = WindowStyle.None;
+			Background = Brushes.Black;
+			ShowInTaskbar = false;
 			ResizeMode = ResizeMode.NoResize;
-			//Visibility = Visibility.Hidden;
+			Visibility = Visibility.Hidden;
 			InitializeComponent();
+			Loaded += (_, _) => {
+				Task.Run(() => {
+					Thread.Sleep(500);
+					Dispatcher.Invoke(() => ButtonBase_OnClick(null!, null!));
+				});
+			};
 		}
 
 		private void ButtonBase_OnClick(object sender, RoutedEventArgs e) {
-			InvalidateVisual();
-			uint width = 0, height = 0;
 			var buf = IntPtr.Zero;
-			var result = Window1.Capture(ref width, ref height, ref buf);
+			var sw = Stopwatch.StartNew();
+			var result = Window1.CaptureLock(ref buf);
+			sw.Stop();
+			Trace.WriteLine($"[D3D9Hook] CaptureLock takes: {sw.ElapsedMilliseconds}ms");
 			if (result == 0) {
-				Trace.WriteLine($"[D3D9Hook] Width: {width}, Height: {height}, buf: {buf}");
-				var size = (ulong)width * height * 4;
-				var bitmap = new WriteableBitmap((int)width, (int)height, 96d, 96d, PixelFormats.Bgr32, null);
+				var size = (ulong)1920 * 1080 * 4;
+				var bitmap = new WriteableBitmap(1920, 1080, 96d, 96d, PixelFormats.Bgr32, null);
 				bitmap.Lock();
 				unsafe {
 					Buffer.MemoryCopy(buf.ToPointer(), bitmap.BackBuffer.ToPointer(), size, size);
@@ -38,6 +48,7 @@ namespace WPFD3Dhack {
 				bitmap.Freeze();
 				new Window3(bitmap).ShowDialog();
 			}
+			Window1.CaptureUnlock();
 		}
 	}
 }

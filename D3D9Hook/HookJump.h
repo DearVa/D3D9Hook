@@ -3,17 +3,14 @@
 
 void DbgPrintf(const char *format, ...);
 
-// const BYTE OLD_CODE[] = { 0x48, 0x83, 0xC1, 0xC8, 0xE9 };  // SwapChain.Present
-// const BYTE OLD_CODE[] = { 0x48, 0x89, 0x5C, 0x24, 0x8 };  // CreateDeviceEx
+const BYTE OLD_CODE[] = { 0x48, 0x89, 0x5C, 0x24, 0x10 };  // CreateAdditionalSwapChain
 
 /* CHookJump modified from taksi project: BSD license */
 struct CHookJump {
-	CHookJump() : DwOldProtection(0) {
-		OldCode[0] = 0;
-	}
+	CHookJump() : POldFunc(nullptr), DwOldProtection(0) { }
 
 	bool IsHookInstalled() const {
-		return OldCode[0] != 0;
+		return POldFunc != nullptr;
 	}
 
 	bool InstallHook(LPVOID pFunc, LPVOID pFuncNew);
@@ -29,7 +26,6 @@ private:
 	LPVOID POldFunc;
 	DWORD DwOldProtection;	   // used by VirtualProtect()
 	DWORD DwProtectionTemp;	   // used by VirtualProtect()
-	BYTE OldCode[5];
 	BYTE Jump[5];    // what do i want to replace it with.
 
 	bool SetVirtualProtect();

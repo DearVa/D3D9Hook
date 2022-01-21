@@ -4,9 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Window2" Height="450" Width="800">
+        Title="Window2" Width="1920" Height="1080">
     <Grid Background="Pink">
         <TextBlock Text="Window2" FontSize="60" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        <Button Margin="0,386,0,0" Click="ButtonBase_OnClick"/>
+        <Button Margin="0,935,0,0" Click="ButtonBase_OnClick"/>
     </Grid>
 </Window>

@@ -18,21 +18,14 @@ bool CHookJump::RestoreVirtualProtect() {
 	return true;
 }
 
-/* CHookJump modified from taksi project: BSD license */
 bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
-	if (pFunc == nullptr) {
+	if (pFunc == nullptr || pFuncNew == nullptr) {
 		return false;
 	}
 
-	if (IsHookInstalled() && !memcmp(pFunc, Jump, sizeof(Jump))) {
+	if (IsHookInstalled() && memcmp(pFunc, Jump, sizeof(Jump)) == 0) {
 		return true;
 	}
-	
-	/*if (memcmp(pFunc, OLD_CODE, sizeof(OLD_CODE)) != 0) {
-		const auto func = static_cast<BYTE*>(pFunc);
-		DbgPrintf("[D3D9Hook] Old Code not match, expected: 48 89 57 24 8, but got: %X %X %X %X %X", func[0], func[1], func[2], func[3], func[4]);
-		return false;
-	}*/
 
 	// unconditional JMP to relative address is 5 bytes
 	Jump[0] = 0xE9;
@@ -41,21 +34,24 @@ bool CHookJump::InstallHook(LPVOID pFunc, LPVOID pFuncNew) {
 
 	POldFunc = pFunc;
 	if (!SetVirtualProtect()) {
+		POldFunc = nullptr;
 		return false;
 	}
-	memcpy(OldCode, pFunc, sizeof(OldCode));
-	DbgPrintf("[D3D9Hook] OldCode: %X %X %X %X %X", OldCode[0], OldCode[1], OldCode[2], OldCode[3], OldCode[4]);
+
+	if (memcmp(pFunc, OLD_CODE, sizeof(OLD_CODE)) != 0) {
+		RestoreVirtualProtect();
+		POldFunc = nullptr;
+		const auto func = static_cast<BYTE *>(pFunc);
+		DbgPrintf("[D3D9Hook] Old Code not match, expected: 48 89 5C 24 10, but got: %X %X %X %X %X", func[0], func[1], func[2], func[3], func[4]);
+		return false;
+	}
+
 	memcpy(pFunc, Jump, sizeof(Jump));
 	RestoreVirtualProtect();  // 不及时改回去有时会导致.NET报错
-
 	return true;
 }
 
 bool CHookJump::UninstallHook() {
-	if (POldFunc == nullptr) {
-		return false;
-	}
-
 	/* was never set! */
 	if (!IsHookInstalled()) {
 		return false;
@@ -64,7 +60,7 @@ bool CHookJump::UninstallHook() {
 	if (!SetVirtualProtect()) {
 		return false;
 	}
-	memcpy(POldFunc, OldCode, sizeof(OldCode));  // SwapOld(pFunc)
+	memcpy(POldFunc, OLD_CODE, sizeof(OLD_CODE));  // SwapOld(pFunc)
 	if (!RestoreVirtualProtect()) {
 		return false;
 	}
@@ -72,17 +68,14 @@ bool CHookJump::UninstallHook() {
 }
 
 void CHookJump::SwapOld() {
-	if (SetVirtualProtect()) {
-		memcpy(POldFunc, OldCode, sizeof(OldCode));
+	if (IsHookInstalled() && SetVirtualProtect()) {
+		memcpy(POldFunc, OLD_CODE, sizeof(OLD_CODE));
 		RestoreVirtualProtect();
 	}
 }
 
 void CHookJump::SwapReset() {
-	if (!IsHookInstalled()) {
-		return;
-	}
-	if (SetVirtualProtect()) {
+	if (IsHookInstalled() && SetVirtualProtect()) {
 		memcpy(POldFunc, Jump, sizeof(Jump));
 		RestoreVirtualProtect();
 	}
